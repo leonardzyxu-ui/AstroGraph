@@ -687,7 +687,7 @@
         <div class="controls">
           <div class="control-row">
             <label class="control-label" for="citySelect">
-              <strong>Preset City</strong>
+              <strong>Preset Latitude</strong>
             </label>
             <select id="citySelect">
               <option value="90">North Pole (90° N)</option>
@@ -723,7 +723,7 @@
           </div>
           <div class="fact">
             <span class="dot equator"></span>
-            <div><strong>Latitude rule</strong>: the altitude of the north celestial pole equals the local geographic latitude.</div>
+            <div><strong>Latitude rule</strong>: the altitude of the visible celestial pole equals the magnitude of the local geographic latitude.</div>
           </div>
         </div>
       </section>
@@ -781,7 +781,7 @@
         </article>
         <article class="caption">
           <h3>Pole Altitude</h3>
-          <p>The angle from the true horizon to the north celestial pole equals geographic latitude.</p>
+          <p>The angle from the true horizon to the visible celestial pole equals the observer's latitude in magnitude.</p>
         </article>
       </div>
     </section>
@@ -867,18 +867,18 @@
         <p>AstroGraph is a high-performance, mathematically accurate 3D celestial sphere explorer built to visualize the fundamental rules of positional astronomy.</p>
         
         <h3>Bespoke 3D Engine</h3>
-        <p>Rather than relying on heavy WebGL libraries like Three.js, this model uses a custom-built 3D-to-2D projection matrix. It calculates vector cross-products, backface culling, and perspective depth directly onto an HTML5 Canvas, allowing it to run at a buttery-smooth 120fps.</p>
+        <p>Rather than relying on a large 3D framework, this model uses a custom canvas projection pipeline. It computes vector relationships, perspective depth, and front-versus-back arc drawing directly on an HTML5 canvas, which keeps the interaction responsive on typical laptops and tablets.</p>
 
         <h3>Astronomical Accuracy</h3>
         <ul>
-          <li><strong>Real Star Mapping:</strong> The background isn't just random noise. It maps the actual Right Ascension and Declination of real stars (like Sirius, Betelgeuse, Polaris, and Orion's Belt) perfectly onto the celestial sphere.</li>
-          <li><strong>Latitude Rule:</strong> The core mathematical relationship of the app visually proves that the altitude of the Celestial Pole perfectly equals your geographic latitude.</li>
+          <li><strong>Bright-Star Anchors:</strong> The background uses a curated set of real bright-star coordinates, plus a faint ambient star field, so the sphere has recognizable celestial reference points without turning into a full planetarium.</li>
+          <li><strong>Latitude Rule:</strong> The core relationship shows that the visible celestial pole rises above the horizon by an angle equal to the magnitude of the observer's latitude.</li>
         </ul>
 
         <h3>Inertial Physics & Easing</h3>
         <ul>
           <li><strong>Tactile Momentum:</strong> Swiping the sphere transfers your mouse velocity into mathematical inertia, using a friction coefficient to glide to a stop.</li>
-          <li><strong>Sidereal Auto-Spin:</strong> After 3 seconds of inactivity, a linear interpolation (Lerp) algorithm smoothly accelerates the sphere. It rotates the actual stars and celestial equator around the polar axis, perfectly simulating the passage of Sidereal Time while your local horizon stays fixed.</li>
+          <li><strong>Sidereal Drift:</strong> When motion is enabled and the model sits idle for a few seconds, the star field and celestial equator begin a gentle drift around the polar axis while the local horizon frame stays fixed.</li>
         </ul>
       </div>
     </div>
@@ -939,6 +939,11 @@
     function cross(a, b) { return vec(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x); }
     function length(a) { return Math.hypot(a.x, a.y, a.z); }
     function normalize(a) { const l = length(a) || 1; return scale(a, 1 / l); }
+    function observerEast(zenithVector) {
+      const reference = Math.abs(Math.abs(zenithVector.y) - 1) < 0.0001 ? vec(0, 0, 1) : axisNorth;
+      const rawEast = cross(reference, zenithVector);
+      return length(rawEast) < 0.0001 ? vec(1, 0, 0) : normalize(rawEast);
+    }
 
     // REAL STARS IMPLEMENTATION
     const realStarsData =[
@@ -1065,7 +1070,7 @@
 
       zenith = normalize(vec(0, Math.sin(phi), Math.cos(phi)));
       nadir = scale(zenith, -1);
-      east = normalize(cross(axisNorth, zenith));
+      east = observerEast(zenith);
       northHorizon = normalize(cross(zenith, east));
       southHorizon = scale(northHorizon, -1);
 
@@ -1278,10 +1283,10 @@
 
       // Idle Sidereal Spin (Stars & Equator) with 3-second delay and 3-second Lerp
       const idleTime = now - lastInteractTime;
-      if (idleTime > 3000 && !pointer.active) {
+      if (view.spinning && idleTime > 3000 && !pointer.active) {
         currentSiderealSpeed += (targetAutoSpinSpeed - currentSiderealSpeed) * 0.01;
       } else {
-        currentSiderealSpeed = 0; // Stop tracking sidereal spin instantly when touched
+        currentSiderealSpeed = 0; // Stop tracking sidereal spin instantly when touched or paused
       }
       if (Math.abs(currentSiderealSpeed) > 0.00001) {
         siderealAngle += currentSiderealSpeed * (dt / 16);
@@ -1340,6 +1345,12 @@
     spinButton.addEventListener("click", () => {
       view.spinning = !view.spinning;
       lastInteractTime = performance.now();
+      if (!view.spinning) {
+        velYaw = 0;
+        velPitch = 0;
+        currentCamSpin = 0;
+        currentSiderealSpeed = 0;
+      }
       spinButton.innerHTML = view.spinning
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M10 4h4v16h-4z"/><path d="M18 5v14"/><path d="M6 5v14"/></svg>Pause'
         : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Play';
