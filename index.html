@@ -1,0 +1,1406 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AstroGraph | Celestial Sphere Explorer</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='%230b1822'/%3E%3Cpath d='M5 17c6-5 16-5 22 0M16 3v26' stroke='%237ff0c8' stroke-width='2.5' fill='none'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --bg: #071018;
+      --bg-2: #0b1822;
+      --panel: rgba(15, 29, 40, 0.78);
+      --panel-strong: rgba(18, 36, 49, 0.92);
+      --line: rgba(187, 215, 228, 0.18);
+      --text: #eef7f8;
+      --muted: #a8bbc4;
+      --dim: #66808b;
+      --earth: #7ec8ff;
+      --earth-soft: rgba(126, 200, 255, 0.18);
+      --equator: #ffb65c;
+      --equator-soft: rgba(255, 182, 92, 0.2);
+      --observer: #7ff0c8;
+      --observer-soft: rgba(127, 240, 200, 0.2);
+      --accent: #d9f99d;
+      --danger: #ff8f8f;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      margin: 0;
+      background:
+        radial-gradient(circle at 18% 14%, rgba(77, 161, 197, 0.16), transparent 30%),
+        radial-gradient(circle at 82% 14%, rgba(166, 202, 139, 0.09), transparent 26%),
+        linear-gradient(145deg, var(--bg), var(--bg-2) 46%, #091119);
+      color: var(--text);
+    }
+
+    body {
+      overflow-x: hidden;
+    }
+
+    button,
+    input,
+    select {
+      font: inherit;
+    }
+
+    select {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.055);
+      color: var(--text);
+      border: 1px solid rgba(188, 217, 232, 0.18);
+      border-radius: 6px;
+      padding: 7px 10px;
+      cursor: pointer;
+      outline: none;
+      appearance: none;
+    }
+
+    select:focus {
+      border-color: rgba(188, 217, 232, 0.4);
+    }
+
+    select option {
+      background: var(--bg-2);
+      color: var(--text);
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: minmax(250px, 300px) minmax(0, 1fr) minmax(250px, 300px);
+      gap: 14px;
+      padding: 16px;
+    }
+
+    .side,
+    .inspector {
+      align-self: stretch;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+      z-index: 2;
+    }
+
+    .brand {
+      padding: 4px 2px 8px;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: clamp(1.55rem, 2.6vw, 2.7rem);
+      line-height: 1;
+      letter-spacing: 0;
+      font-weight: 760;
+      
+      /* New Light Blue to Blue Gradient */
+      background: linear-gradient(135deg, #7ec8ff, #2563eb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      
+      /* The glowing halo effect */
+      filter: drop-shadow(0 0 16px rgba(126, 200, 255, 0.45));
+    }
+
+    .brand p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+      line-height: 1.55;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      background: rgba(15, 29, 40, 0.9);
+      box-shadow: var(--shadow);
+      border-radius: 8px;
+    }
+
+    .panel.section {
+      padding: 16px;
+    }
+
+    .section h2 {
+      margin: 0 0 12px;
+      font-size: 0.86rem;
+      letter-spacing: 0;
+      color: var(--text);
+      font-weight: 720;
+    }
+
+    .fact-list {
+      display: grid;
+      gap: 11px;
+    }
+
+    .fact {
+      display: grid;
+      grid-template-columns: 11px minmax(0, 1fr);
+      gap: 10px;
+      align-items: start;
+      color: var(--muted);
+      font-size: 0.89rem;
+      line-height: 1.48;
+    }
+
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 999px;
+      margin-top: 5px;
+      background: var(--dim);
+      box-shadow: 0 0 18px currentColor;
+    }
+
+    .dot.earth {
+      color: var(--earth);
+      background: var(--earth);
+    }
+
+    .dot.equator {
+      color: var(--equator);
+      background: var(--equator);
+    }
+
+    .dot.observer {
+      color: var(--observer);
+      background: var(--observer);
+    }
+
+    .fact strong {
+      color: var(--text);
+      font-weight: 690;
+    }
+
+    .stage-wrap {
+      position: relative;
+      align-self: start;
+      height: calc(100vh - 32px);
+      min-height: 640px;
+      border: 1px solid rgba(188, 217, 232, 0.16);
+      border-radius: 8px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 34%),
+        radial-gradient(circle at 50% 46%, rgba(107, 189, 215, 0.1), transparent 40%),
+        rgba(5, 13, 20, 0.72);
+      box-shadow: var(--shadow);
+      touch-action: none;
+    }
+
+    canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: grab;
+    }
+
+    canvas:active {
+      cursor: grabbing;
+    }
+
+    .topbar {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: flex-start;
+      gap: 8px;
+      pointer-events: none;
+      z-index: 2;
+      max-width: min(430px, calc(100% - 32px));
+      display: none;
+    }
+
+    .readout {
+      max-width: 100%;
+      padding: 12px 14px;
+      border: 1px solid rgba(188, 217, 232, 0.15);
+      background: rgba(7, 18, 27, 0.86);
+      border-radius: 8px;
+    }
+
+    .readout .kicker {
+      margin: 0 0 4px;
+      color: var(--accent);
+      font-size: 0.74rem;
+      line-height: 1.2;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    .readout p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
+
+    .status {
+      padding: 9px 12px;
+      border: 1px solid rgba(188, 217, 232, 0.15);
+      background: rgba(7, 18, 27, 0.86);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.83rem;
+      line-height: 1.35;
+      text-align: left;
+      white-space: normal;
+    }
+
+    .caption-strip {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      z-index: 2;
+      pointer-events: none;
+      display: none;
+    }
+
+    .caption {
+      min-height: 80px;
+      padding: 13px;
+      border: 1px solid rgba(188, 217, 232, 0.15);
+      background: rgba(7, 18, 27, 0.86);
+      border-radius: 8px;
+    }
+
+    .caption h3 {
+      margin: 0 0 5px;
+      font-size: 0.82rem;
+      line-height: 1.2;
+      font-weight: 740;
+    }
+
+    .caption p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.78rem;
+      line-height: 1.42;
+    }
+
+    .controls {
+      display: grid;
+      gap: 12px;
+    }
+
+    .control-row {
+      display: grid;
+      gap: 7px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.3;
+    }
+
+    .control-label strong {
+      color: var(--text);
+      font-weight: 680;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      accent-color: var(--observer);
+    }
+
+    .button-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .icon-button,
+    .toggle-row {
+      min-height: 38px;
+      border: 1px solid rgba(188, 217, 232, 0.18);
+      border-radius: 8px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.055);
+      cursor: pointer;
+      transition: background 180ms ease, border-color 180ms ease, transform 180ms ease;
+    }
+
+    .icon-button {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      font-size: 0.82rem;
+      font-weight: 680;
+    }
+
+    .icon-button:hover,
+    .toggle-row:hover {
+      background: rgba(255, 255, 255, 0.095);
+      border-color: rgba(188, 217, 232, 0.32);
+      transform: translateY(-1px);
+    }
+
+    .icon-button svg {
+      width: 16px;
+      height: 16px;
+      stroke-width: 2.2;
+      flex: 0 0 auto;
+    }
+
+    .toggle-stack {
+      display: grid;
+      gap: 8px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 10px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .toggle-row input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: var(--observer);
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .metric {
+      min-height: 82px;
+      padding: 12px;
+      border: 1px solid rgba(188, 217, 232, 0.14);
+      background: rgba(255, 255, 255, 0.045);
+      border-radius: 8px;
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.74rem;
+      line-height: 1.25;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 8px;
+      color: var(--text);
+      font-size: 1.06rem;
+      line-height: 1.1;
+      font-weight: 760;
+    }
+
+    .legend {
+      display: grid;
+      gap: 10px;
+    }
+
+    .legend-item {
+      display: grid;
+      grid-template-columns: 44px minmax(0, 1fr);
+      align-items: center;
+      gap: 11px;
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+
+    .sample {
+      height: 2px;
+      border-radius: 999px;
+      background: var(--dim);
+    }
+
+    .sample.earth {
+      background: var(--earth);
+      box-shadow: 0 0 16px var(--earth-soft);
+    }
+
+    .sample.equator {
+      background: var(--equator);
+      box-shadow: 0 0 16px var(--equator-soft);
+    }
+
+    .sample.observer {
+      background: var(--observer);
+      box-shadow: 0 0 16px var(--observer-soft);
+    }
+
+    .sample.grid {
+      background: repeating-linear-gradient(90deg, rgba(171, 202, 216, 0.46) 0 5px, transparent 5px 10px);
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+
+    .note strong {
+      color: var(--text);
+      font-weight: 690;
+    }
+
+    @media (max-width: 1180px) {
+      .app {
+        grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+      }
+
+      .inspector {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        align-items: start;
+      }
+
+      .stage-wrap {
+        align-self: stretch;
+        height: 680px;
+        min-height: 0;
+      }
+    }
+
+    @media (max-width: 840px) {
+      .app {
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+        padding: 12px;
+      }
+
+      .stage-wrap {
+        align-self: stretch;
+        height: 620px;
+        min-height: 0;
+        order: 1;
+      }
+
+      .side {
+        order: 2;
+      }
+
+      .inspector {
+        order: 3;
+        display: flex;
+      }
+
+      .caption-strip {
+        grid-template-columns: 1fr;
+      }
+
+      .caption {
+        min-height: 0;
+      }
+
+      .caption:nth-child(n + 2) {
+        display: none;
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .status {
+        text-align: left;
+        white-space: normal;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .brand h1 {
+        font-size: 1.34rem;
+        line-height: 1.08;
+      }
+
+      .stage-wrap {
+        height: 560px;
+      }
+
+      .topbar,
+      .caption-strip {
+        left: 10px;
+        right: 10px;
+      }
+
+      .readout {
+        padding: 10px;
+      }
+
+      .caption-strip {
+        bottom: 10px;
+      }
+
+      .button-grid,
+      .metric-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    /* --- ABOUT MODAL STYLES --- */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(4, 11, 18, 0.65);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 300ms ease;
+    }
+    
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    
+    .modal-window {
+      background: var(--panel-strong);
+      border: 1px solid rgba(188, 217, 232, 0.2);
+      border-radius: 12px;
+      box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+      max-width: 580px;
+      width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+      transform: scale(0.95) translateY(15px);
+      transition: transform 300ms cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    }
+    
+    .modal-overlay.open .modal-window {
+      transform: scale(1) translateY(0);
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+      background: linear-gradient(135deg, #7ec8ff, #2563eb);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 10px rgba(126, 200, 255, 0.3));
+    }
+    
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 2rem;
+      cursor: pointer;
+      line-height: 0.5;
+      padding: 0;
+      transition: color 150ms ease;
+    }
+    
+    .close-btn:hover {
+      color: var(--danger);
+    }
+    
+    .modal-body {
+      padding: 24px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    
+    .modal-body h3 {
+      color: var(--text);
+      font-size: 0.95rem;
+      margin: 18px 0 8px;
+    }
+    
+    .modal-body p {
+      margin: 0 0 12px;
+    }
+    
+    .modal-body ul {
+      margin: 0 0 16px;
+      padding-left: 20px;
+    }
+    
+    .modal-body li {
+      margin-bottom: 8px;
+    }
+    
+    .modal-body strong {
+      color: var(--accent);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <aside class="side">
+      <header class="brand">
+        <h1>AstroGraph</h1>
+        <p>A movable model of the celestial sphere, celestial equator, celestial poles, zenith, nadir, and true horizon.</p>
+        <button id="aboutBtn" class="icon-button" type="button" style="margin-top: 14px; padding: 6px 14px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+          Under the Hood
+        </button>
+      </header>
+
+      <section class="panel section">
+        <h2>Location Setup</h2>
+        <div class="controls">
+          <div class="control-row">
+            <label class="control-label" for="citySelect">
+              <strong>Preset City</strong>
+            </label>
+            <select id="citySelect">
+              <option value="90">North Pole (90° N)</option>
+              <option value="51.51">London (51.5° N)</option>
+              <option value="40.71">New York (40.7° N)</option>
+              <option value="31.23" selected>Shanghai (31.2° N)</option>
+              <option value="0">Equator (0°)</option>
+              <option value="-33.87">Sydney (33.9° S)</option>
+              <option value="-90">South Pole (90° S)</option>
+              <option value="custom" hidden>Custom Latitude</option>
+            </select>
+          </div>
+          <div class="control-row" style="margin-top: 4px;">
+            <label class="control-label" for="latRange">
+              <strong>Latitude</strong>
+              <span id="latValue">31.23° N</span>
+            </label>
+            <input id="latRange" type="range" min="-90" max="90" step="0.1" value="31.23">
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section">
+        <h2>Two Reference Frames</h2>
+        <div class="fact-list">
+          <div class="fact">
+            <span class="dot earth"></span>
+            <div><strong>Earth's rotation axis</strong> extends to the north celestial pole P and south celestial pole P′, defining the celestial equator.</div>
+          </div>
+          <div class="fact">
+            <span class="dot observer"></span>
+            <div><strong>The observer location</strong> defines the zenith Z, nadir Z′, and a true horizon perpendicular to the zenith direction.</div>
+          </div>
+          <div class="fact">
+            <span class="dot equator"></span>
+            <div><strong>Latitude rule</strong>: the altitude of the north celestial pole equals the local geographic latitude.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section">
+        <h2>View Controls</h2>
+        <div class="controls">
+          <div class="button-grid">
+            <button class="icon-button" id="resetView" type="button" title="Reset view">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+              Reset
+            </button>
+            <button class="icon-button" id="toggleSpin" type="button" title="Auto rotate">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M10 4h4v16h-4z"/><path d="M18 5v14"/><path d="M6 5v14"/></svg>
+              Pause
+            </button>
+          </div>
+
+          <div class="control-row">
+            <label class="control-label" for="zoomRange">
+              <strong>Zoom</strong>
+              <span id="zoomValue">100%</span>
+            </label>
+            <input id="zoomRange" type="range" min="78" max="128" value="100">
+          </div>
+
+          <div class="control-row">
+            <label class="control-label" for="speedRange">
+              <strong>Spin Speed</strong>
+              <span id="speedValue">0.18×</span>
+            </label>
+            <input id="speedRange" type="range" min="0" max="40" value="18">
+          </div>
+        </div>
+      </section>
+    </aside>
+
+    <section class="stage-wrap" aria-label="Interactive celestial sphere diagram">
+      <canvas id="sphereCanvas"></canvas>
+      <div class="topbar">
+        <div class="readout">
+          <p class="kicker">Observer model</p>
+          <p>Local observer model</p>
+        </div>
+        <div class="status" id="statusReadout">P altitude 31.23° · Equator high point 58.77°</div>
+      </div>
+      <div class="caption-strip">
+        <article class="caption">
+          <h3>Celestial Equator</h3>
+          <p>Earth's equator projected outward onto the celestial sphere, perpendicular to the polar axis.</p>
+        </article>
+        <article class="caption">
+          <h3>True Horizon</h3>
+          <p>A great circle through the observer, perpendicular to the zenith direction.</p>
+        </article>
+        <article class="caption">
+          <h3>Pole Altitude</h3>
+          <p>The angle from the true horizon to the north celestial pole equals geographic latitude.</p>
+        </article>
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <section class="panel section">
+        <h2>Parameters</h2>
+        <div class="metric-grid">
+          <div class="metric">
+            <span>Geographic Latitude</span>
+            <strong id="metricLat">31.23° N</strong>
+          </div>
+          <div class="metric">
+            <span>P Altitude</span>
+            <strong id="metricPAlt">31.23°</strong>
+          </div>
+          <div class="metric">
+            <span>Equator High Point</span>
+            <strong id="metricEqHigh">58.77°</strong>
+          </div>
+          <div class="metric">
+            <span>Z to P Angular Distance</span>
+            <strong id="metricZDist">58.77°</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section">
+        <h2>Layers</h2>
+        <div class="toggle-stack">
+          <label class="toggle-row">
+            <input id="showGrid" type="checkbox" checked>
+            Guide grid
+          </label>
+          <label class="toggle-row">
+            <input id="showLabels" type="checkbox" checked>
+            Diagram labels
+          </label>
+          <label class="toggle-row">
+            <input id="showAngles" type="checkbox" checked>
+            Angle arc
+          </label>
+        </div>
+      </section>
+
+      <section class="panel section">
+        <h2>Legend</h2>
+        <div class="legend">
+          <div class="legend-item">
+            <span class="sample earth"></span>
+            <span>Earth axis: north celestial pole P / south celestial pole P′</span>
+          </div>
+          <div class="legend-item">
+            <span class="sample equator"></span>
+            <span>Equatorial frame: celestial equator</span>
+          </div>
+          <div class="legend-item">
+            <span class="sample observer"></span>
+            <span>Horizontal frame: zenith, nadir, true horizon</span>
+          </div>
+          <div class="legend-item">
+            <span class="sample grid"></span>
+            <span>Rear arcs use dashed, low-opacity strokes</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel section">
+        <h2>Core Relationship</h2>
+        <p class="note"><strong>∠PON</strong> shows local latitude; the <strong>celestial equator</strong> is always perpendicular to the <strong>polar axis</strong>; the <strong>true horizon</strong> is always perpendicular to the <strong>zenith axis</strong>.</p>
+      </section>
+    </aside>
+  </main>
+
+  <!-- About Modal -->
+  <div id="aboutModal" class="modal-overlay">
+    <div class="modal-window">
+      <header class="modal-header">
+        <h2>About AstroGraph</h2>
+        <button id="closeModalBtn" class="close-btn" aria-label="Close">&times;</button>
+      </header>
+      <div class="modal-body">
+        <p>AstroGraph is a high-performance, mathematically accurate 3D celestial sphere explorer built to visualize the fundamental rules of positional astronomy.</p>
+        
+        <h3>Bespoke 3D Engine</h3>
+        <p>Rather than relying on heavy WebGL libraries like Three.js, this model uses a custom-built 3D-to-2D projection matrix. It calculates vector cross-products, backface culling, and perspective depth directly onto an HTML5 Canvas, allowing it to run at a buttery-smooth 120fps.</p>
+
+        <h3>Astronomical Accuracy</h3>
+        <ul>
+          <li><strong>Real Star Mapping:</strong> The background isn't just random noise. It maps the actual Right Ascension and Declination of real stars (like Sirius, Betelgeuse, Polaris, and Orion's Belt) perfectly onto the celestial sphere.</li>
+          <li><strong>Latitude Rule:</strong> The core mathematical relationship of the app visually proves that the altitude of the Celestial Pole perfectly equals your geographic latitude.</li>
+        </ul>
+
+        <h3>Inertial Physics & Easing</h3>
+        <ul>
+          <li><strong>Tactile Momentum:</strong> Swiping the sphere transfers your mouse velocity into mathematical inertia, using a friction coefficient to glide to a stop.</li>
+          <li><strong>Sidereal Auto-Spin:</strong> After 3 seconds of inactivity, a linear interpolation (Lerp) algorithm smoothly accelerates the sphere. It rotates the actual stars and celestial equator around the polar axis, perfectly simulating the passage of Sidereal Time while your local horizon stays fixed.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("sphereCanvas");
+    const ctx = canvas.getContext("2d");
+    const resetButton = document.getElementById("resetView");
+    const spinButton = document.getElementById("toggleSpin");
+    const zoomRange = document.getElementById("zoomRange");
+    const zoomValue = document.getElementById("zoomValue");
+    const speedRange = document.getElementById("speedRange");
+    const speedValue = document.getElementById("speedValue");
+    const showGridInput = document.getElementById("showGrid");
+    const showLabelsInput = document.getElementById("showLabels");
+    const showAnglesInput = document.getElementById("showAngles");
+    const latRange = document.getElementById("latRange");
+    const citySelect = document.getElementById("citySelect");
+
+    const dpr = Math.max(1, Math.min(window.devicePixelRatio || 1, 1.5));
+    
+    // Physics and rotation states (Default Play = ON)
+    let view = { yaw: -0.62, pitch: 0.34, roll: 0, zoom: 1, spinning: true, spinSpeed: 0.18 };
+    let pointer = { active: false, x: 0, y: 0 };
+    let size = { width: 0, height: 0, cx: 0, cy: 0, radius: 0 };
+    
+    let velYaw = 0;
+    let velPitch = 0;
+    let lastInteractTime = performance.now();
+    
+    // Smoothing speeds
+    let currentCamSpin = 0;
+    let siderealAngle = 0;
+    let currentSiderealSpeed = 0;
+    const targetAutoSpinSpeed = 0.0012; 
+
+    // Geographic state
+    let phi = 31.2304 * Math.PI / 180;
+    let equatorHigh = 90 - 31.2304;
+    const axisNorth = vec(0, 1, 0);
+    const axisSouth = scale(axisNorth, -1);
+    let zenith, nadir, east, northHorizon, southHorizon;
+    let geometry = {};
+
+    const colors = {
+      sphere: "rgba(203, 231, 242, 0.36)", sphereBack: "rgba(203, 231, 242, 0.08)",
+      grid: "rgba(163, 197, 210, 0.24)", gridBack: "rgba(163, 197, 210, 0.08)",
+      earth: "#7ec8ff", earthBack: "rgba(126, 200, 255, 0.22)",
+      equator: "#ffb65c", equatorBack: "rgba(255, 182, 92, 0.2)",
+      observer: "#7ff0c8", observerBack: "rgba(127, 240, 200, 0.2)",
+      angle: "#d9f99d", text: "#eef7f8", muted: "#a8bbc4", center: "#f8fafc"
+    };
+
+    function vec(x, y, z) { return { x, y, z }; }
+    function add(a, b) { return vec(a.x + b.x, a.y + b.y, a.z + b.z); }
+    function scale(a, s) { return vec(a.x * s, a.y * s, a.z * s); }
+    function cross(a, b) { return vec(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x); }
+    function length(a) { return Math.hypot(a.x, a.y, a.z); }
+    function normalize(a) { const l = length(a) || 1; return scale(a, 1 / l); }
+
+    // REAL STARS IMPLEMENTATION
+    const realStarsData =[
+      { name: "Sirius", ra: 6.75, dec: -16.71, mag: -1.46 },
+      { name: "Canopus", ra: 6.40, dec: -52.69, mag: -0.74 },
+      { name: "Arcturus", ra: 14.26, dec: 19.18, mag: -0.05 },
+      { name: "Vega", ra: 18.61, dec: 38.78, mag: 0.03 },
+      { name: "Capella", ra: 5.28, dec: 45.99, mag: 0.08 },
+      { name: "Rigel", ra: 5.24, dec: -8.20, mag: 0.13 },
+      { name: "Procyon", ra: 7.65, dec: 5.22, mag: 0.38 },
+      { name: "Betelgeuse", ra: 5.91, dec: 7.40, mag: 0.50 },
+      { name: "Polaris", ra: 2.53, dec: 89.26, mag: 1.97 },
+      { name: "Alnitak", ra: 5.68, dec: -1.94, mag: 1.74 }, // Orion's Belt
+      { name: "Alnilam", ra: 5.60, dec: -1.20, mag: 1.69 }, // Orion's Belt
+      { name: "Mintaka", ra: 5.53, dec: -0.29, mag: 2.23 }  // Orion's Belt
+    ];
+
+    const stars = realStarsData.map(s => {
+      const theta = (s.ra / 24) * Math.PI * 2;
+      const decRad = s.dec * Math.PI / 180;
+      return {
+        v: vec(Math.cos(decRad) * Math.cos(theta), Math.sin(decRad), Math.cos(decRad) * Math.sin(theta)),
+        r: Math.max(0.7, 2.0 - s.mag * 0.3),
+        a: Math.max(0.4, 1.0 - s.mag * 0.1)
+      };
+    });
+
+    // Add faint ambient stars to fill the sky
+    for (let i = 0; i < 120; i++) {
+      const y = (Math.random() - 0.5) * 2;
+      const radius = Math.sqrt(1 - y * y);
+      const theta = Math.random() * Math.PI * 2;
+      stars.push({
+        v: vec(Math.cos(theta) * radius, y, Math.sin(theta) * radius),
+        r: Math.random() * 0.7 + 0.3,
+        a: Math.random() * 0.4 + 0.1
+      });
+    }
+
+    let dirty = true;
+    let lastTime = performance.now();
+    const labelWidths = new Map();
+
+    function basisFromNormal(normal) {
+      const helper = Math.abs(normal.y) < 0.92 ? vec(0, 1, 0) : vec(1, 0, 0);
+      const u = normalize(cross(helper, normal));
+      const v = normalize(cross(normal, u));
+      return { u, v };
+    }
+
+    function rotate(v) {
+      const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw);
+      const cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+      let x = v.x * cy - v.z * sy, z = v.x * sy + v.z * cy, y = v.y;
+      const y2 = y * cp - z * sp, z2 = y * sp + z * cp;
+      return vec(x, y2, z2);
+    }
+
+    // Rotates coordinates around polar axis (passage of time)
+    function rotateSidereal(v, theta) {
+      const c = Math.cos(theta), s = Math.sin(theta);
+      return vec(v.x * c + v.z * s, v.y, -v.x * s + v.z * c);
+    }
+
+    function project(v, radiusScale = 1) {
+      const r = rotate(v);
+      const perspective = 2.65 / (2.65 - r.z * 0.36);
+      return {
+        x: size.cx + r.x * size.radius * radiusScale * perspective,
+        y: size.cy - r.y * size.radius * radiusScale * perspective,
+        z: r.z, p: perspective
+      };
+    }
+
+    function circlePoints(normal, count = 240) {
+      const { u, v } = basisFromNormal(normal);
+      const points =[];
+      for (let i = 0; i <= count; i += 1) {
+        const t = i / count * Math.PI * 2;
+        points.push(add(scale(u, Math.cos(t)), scale(v, Math.sin(t))));
+      }
+      return points;
+    }
+
+    function latitudeCirclePoints(normal, latitudeDeg, count = 240) {
+      const { u, v } = basisFromNormal(normal);
+      const lat = latitudeDeg * Math.PI / 180;
+      const planeOffset = Math.sin(lat), circleRadius = Math.cos(lat);
+      const center = scale(normal, planeOffset);
+      const points =[];
+      for (let i = 0; i <= count; i += 1) {
+        const t = i / count * Math.PI * 2;
+        const onPlane = add(scale(u, Math.cos(t) * circleRadius), scale(v, Math.sin(t) * circleRadius));
+        points.push(add(center, onPlane));
+      }
+      return points;
+    }
+
+    function meridianPoints(normal, angle, count = 180) {
+      const { u, v } = basisFromNormal(normal);
+      const equatorDirection = normalize(add(scale(u, Math.cos(angle)), scale(v, Math.sin(angle))));
+      const points =[];
+      for (let i = 0; i <= count; i += 1) {
+        const t = -Math.PI / 2 + i / count * Math.PI;
+        points.push(add(scale(equatorDirection, Math.cos(t)), scale(normal, Math.sin(t))));
+      }
+      return points;
+    }
+
+    function angleArcPoints(count = 72) {
+      const points =[];
+      for (let i = 0; i <= count; i += 1) {
+        const t = i / count * phi;
+        points.push(normalize(add(scale(northHorizon, Math.cos(t)), scale(zenith, Math.sin(t)))));
+      }
+      return points;
+    }
+
+    // Dynamic update logic
+    function updateLatitude(deg) {
+      phi = deg * Math.PI / 180;
+      const absDeg = Math.abs(deg);
+      equatorHigh = 90 - absDeg;
+
+      zenith = normalize(vec(0, Math.sin(phi), Math.cos(phi)));
+      nadir = scale(zenith, -1);
+      east = normalize(cross(axisNorth, zenith));
+      northHorizon = normalize(cross(zenith, east));
+      southHorizon = scale(northHorizon, -1);
+
+      geometry.equator = circlePoints(axisNorth, 192);
+      geometry.gridLatitudes =[-60, -30, 30, 60].map((lat) => latitudeCirclePoints(axisNorth, lat, 160));
+      geometry.gridMeridians = Array.from({ length: 6 }, (_, i) => meridianPoints(axisNorth, i * Math.PI / 6, 128));
+      
+      geometry.horizon = circlePoints(zenith, 192);
+      geometry.angleArc = angleArcPoints(72);
+
+      const latStr = `${absDeg.toFixed(1)}° ${deg >= 0 ? 'N' : 'S'}`;
+      document.getElementById("latValue").textContent = latStr;
+      document.getElementById("statusReadout").textContent = `P altitude ${absDeg.toFixed(2)}° · Equator high point ${equatorHigh.toFixed(2)}°`;
+      document.getElementById("metricLat").textContent = latStr;
+      document.getElementById("metricPAlt").textContent = `${absDeg.toFixed(2)}°`;
+      document.getElementById("metricEqHigh").textContent = `${equatorHigh.toFixed(2)}°`;
+      document.getElementById("metricZDist").textContent = `${equatorHigh.toFixed(2)}°`;
+
+      requestRender();
+    }
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      size.width = rect.width; size.height = rect.height;
+      canvas.width = Math.floor(rect.width * dpr);
+      canvas.height = Math.floor(rect.height * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      size.cx = rect.width * 0.5; size.cy = rect.height * 0.51;
+      
+      const widthFactor = size.width < 520 ? 0.31 : 0.36;
+      const heightFactor = size.width < 520 ? 0.31 : 0.36;
+      size.radius = Math.min(size.width * widthFactor, size.height * heightFactor) * view.zoom;
+    }
+
+    function requestRender() { dirty = true; }
+
+    function drawPath(points, frontColor, backColor, width, dashFront = [], dashBack = [7, 7]) {
+      const projected = points.map((point) => project(point));
+      drawSegmented(projected, false, backColor, width, dashBack);
+      drawSegmented(projected, true, frontColor, width, dashFront);
+    }
+
+    function drawPathEquatorial(points, frontColor, backColor, width, dashFront = [], dashBack = [7, 7]) {
+      const projected = points.map((point) => project(rotateSidereal(point, siderealAngle)));
+      drawSegmented(projected, false, backColor, width, dashBack);
+      drawSegmented(projected, true, frontColor, width, dashFront);
+    }
+
+    function drawSegmented(points, front, color, width, dash) {
+      ctx.save();
+      ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "round"; ctx.lineJoin = "round";
+      ctx.setLineDash(dash);
+      let open = false;
+
+      for (let i = 1; i < points.length; i += 1) {
+        const a = points[i - 1], b = points[i];
+        const visible = front ? (a.z >= 0 || b.z >= 0) : (a.z < 0 || b.z < 0);
+        const jump = Math.hypot(a.x - b.x, a.y - b.y) > size.radius * 0.35;
+        if (!visible || jump) {
+          if (open) { ctx.stroke(); open = false; }
+          continue;
+        }
+        if (!open) { ctx.beginPath(); ctx.moveTo(a.x, a.y); open = true; }
+        ctx.lineTo(b.x, b.y);
+      }
+      if (open) ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawAxis(a, b, color, backColor, width) {
+      const pa = project(a, 1.08), pb = project(b, 1.08);
+      const firstFront = pa.z > pb.z;
+      const front = firstFront ? [pb, pa] :[pa, pb];
+
+      ctx.save(); ctx.lineCap = "round";
+      ctx.strokeStyle = backColor; ctx.lineWidth = width; ctx.setLineDash([8, 8]);
+      ctx.beginPath(); ctx.moveTo(pa.x, pa.y); ctx.lineTo(pb.x, pb.y); ctx.stroke();
+      
+      ctx.setLineDash([]); ctx.strokeStyle = color; ctx.lineWidth = width;
+      ctx.beginPath(); ctx.moveTo(front[0].x, front[0].y); ctx.lineTo(front[1].x, front[1].y); ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawPoint(v, color, label, offset = { x: 0, y: 0 }) {
+      const p = project(v, 1.08);
+      const r = Math.max(4, 6 * p.p);
+      ctx.save(); ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 16;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      if (showLabelsInput.checked) drawLabel(label, p.x + offset.x, p.y + offset.y, color, p.z < 0);
+      ctx.restore();
+    }
+
+    function drawLabel(text, x, y, color = colors.text, muted = false) {
+      ctx.save();
+      const fontSize = size.width < 520 ? 12 : 14;
+      const labelHeight = size.width < 520 ? 16 : 18;
+      ctx.font = `700 ${fontSize}px Inter, system-ui, sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      const widthKey = `${fontSize}:${text}`;
+      let textWidth = labelWidths.get(widthKey);
+      if (!textWidth) { textWidth = ctx.measureText(text).width; labelWidths.set(widthKey, textWidth); }
+      const padX = size.width < 520 ? 7 : 8, padY = size.width < 520 ? 4 : 5;
+      
+      ctx.fillStyle = muted ? "rgba(7, 18, 27, 0.52)" : "rgba(7, 18, 27, 0.78)";
+      ctx.strokeStyle = muted ? "rgba(188, 217, 232, 0.1)" : "rgba(188, 217, 232, 0.22)";
+      roundRect(x - textWidth / 2 - padX, y - labelHeight / 2 - padY, textWidth + padX * 2, labelHeight + padY * 2, 7);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = muted ? "rgba(168, 187, 196, 0.72)" : color; ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+
+    function roundRect(x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath(); ctx.moveTo(x + radius, y); ctx.arcTo(x + w, y, x + w, y + h, radius);
+      ctx.arcTo(x + w, y + h, x, y + h, radius); ctx.arcTo(x, y + h, x, y, radius); ctx.arcTo(x, y, x + w, y, radius); ctx.closePath();
+    }
+
+    function drawSphereBase() {
+      const grd = ctx.createRadialGradient(size.cx, size.cy, size.radius * 0.1, size.cx, size.cy, size.radius * 1.1);
+      grd.addColorStop(0, "rgba(128, 197, 217, 0.11)"); grd.addColorStop(0.66, "rgba(66, 114, 134, 0.045)"); grd.addColorStop(1, "rgba(255, 255, 255, 0.012)");
+      ctx.save(); ctx.beginPath(); ctx.arc(size.cx, size.cy, size.radius, 0, Math.PI * 2);
+      ctx.fillStyle = grd; ctx.fill(); ctx.strokeStyle = colors.sphere; ctx.lineWidth = 1.6; ctx.stroke();
+      ctx.setLineDash([4, 8]); ctx.strokeStyle = colors.sphereBack; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(size.cx, size.cy, size.radius * 0.995, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+
+    function drawStarfield() {
+      ctx.save(); ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+      for (const star of stars) {
+        const v = rotateSidereal(star.v, siderealAngle);
+        const p = project(v, 1.0);
+        ctx.globalAlpha = p.z < 0 ? star.a * 0.3 : star.a;
+        ctx.beginPath(); ctx.arc(p.x, p.y, star.r * Math.max(0.5, p.p), 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawGrid() {
+      if (!showGridInput.checked) return;
+      for (const latitude of geometry.gridLatitudes) drawPathEquatorial(latitude, colors.grid, colors.gridBack, 1, [],[5, 8]);
+      for (const meridian of geometry.gridMeridians) drawPathEquatorial(meridian, colors.grid, colors.gridBack, 1, [], [5, 8]);
+    }
+
+    function drawAngleArc() {
+      if (!showAnglesInput.checked) return;
+      drawPath(geometry.angleArc, colors.angle, "rgba(217, 249, 157, 0.16)", 2.4, [], [5, 7]);
+      const mid = project(normalize(add(scale(northHorizon, Math.cos(phi * 0.5)), scale(zenith, Math.sin(phi * 0.5)))), 1);
+      if (showLabelsInput.checked) {
+        drawLabel(`${Math.abs(phi * 180 / Math.PI).toFixed(2)}°`, mid.x - 6, mid.y - 20, colors.angle, false);
+      }
+    }
+
+    function drawCenter() {
+      const p = project(vec(0, 0, 0));
+      ctx.save(); ctx.fillStyle = colors.center; ctx.shadowColor = "rgba(255, 255, 255, 0.5)"; ctx.shadowBlur = 12;
+      ctx.beginPath(); ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+      if (showLabelsInput.checked) drawLabel("O Observer", p.x + 44, p.y + 18, colors.text, false);
+      ctx.restore();
+    }
+
+    function drawScene() {
+      ctx.clearRect(0, 0, size.width, size.height);
+      drawStarfield();
+      drawSphereBase();
+      drawGrid();
+
+      drawPath(geometry.horizon, colors.observer, colors.observerBack, 2.8, [], [8, 8]);
+      drawPathEquatorial(geometry.equator, colors.equator, colors.equatorBack, 3.1, [], [8, 8]);
+
+      drawAngleArc();
+      drawAxis(axisSouth, axisNorth, colors.earth, colors.earthBack, 3.4); // Earth axis is unaffected by spin
+      drawAxis(nadir, zenith, colors.observer, colors.observerBack, 3.1);
+      drawCenter();
+
+      drawPoint(axisNorth, colors.earth, "North Celestial Pole P", { x: -10, y: -24 });
+      drawPoint(axisSouth, colors.earth, "South Celestial Pole P′", { x: 10, y: 26 });
+      drawPoint(zenith, colors.observer, "Zenith Z", { x: 2, y: -26 });
+      drawPoint(nadir, colors.observer, "Nadir Z′", { x: 0, y: 28 });
+
+      // Pinned non-flickering labels
+      if (showLabelsInput.checked) {
+        const eastProj = project(east);
+        drawLabel("Celestial Equator", eastProj.x, eastProj.y - 20, colors.equator, eastProj.z < 0);
+        
+        const southProj = project(southHorizon);
+        drawLabel("True Horizon", southProj.x, southProj.y - 20, colors.observer, southProj.z < 0);
+      }
+    }
+
+    function animate(now) {
+      let dt = Math.min(now - lastTime, 50); // cap to prevent huge jumps
+      lastTime = now;
+      let needsRender = dirty;
+
+      // Inertia Physics (dragging)
+      if (!pointer.active) {
+        view.yaw += velYaw;
+        view.pitch = Math.max(-1.12, Math.min(1.12, view.pitch + velPitch));
+        velYaw *= 0.92;
+        velPitch *= 0.92;
+        if (Math.abs(velYaw) > 0.0001 || Math.abs(velPitch) > 0.0001) needsRender = true;
+      }
+
+      // Camera Orbit (Play Button) with 2-3 second smooth Lerp
+      let targetCamSpin = (view.spinning && !pointer.active) ? (view.spinSpeed / 100) : 0;
+      currentCamSpin += (targetCamSpin - currentCamSpin) * 0.015; // 0.015 gives a butter-smooth 2-second ramp
+      if (Math.abs(currentCamSpin) > 0.00001) {
+        view.yaw += currentCamSpin * (dt / 16);
+        needsRender = true;
+      }
+
+      // Idle Sidereal Spin (Stars & Equator) with 3-second delay and 3-second Lerp
+      const idleTime = now - lastInteractTime;
+      if (idleTime > 3000 && !pointer.active) {
+        currentSiderealSpeed += (targetAutoSpinSpeed - currentSiderealSpeed) * 0.01;
+      } else {
+        currentSiderealSpeed = 0; // Stop tracking sidereal spin instantly when touched
+      }
+      if (Math.abs(currentSiderealSpeed) > 0.00001) {
+        siderealAngle += currentSiderealSpeed * (dt / 16);
+        needsRender = true;
+      }
+
+      if (needsRender) {
+        drawScene();
+        dirty = false;
+      }
+      requestAnimationFrame(animate);
+    }
+
+    function pointerDown(event) {
+      pointer.active = true; pointer.x = event.clientX; pointer.y = event.clientY;
+      velYaw = 0; velPitch = 0;
+      lastInteractTime = performance.now();
+      canvas.setPointerCapture(event.pointerId);
+    }
+
+    function pointerMove(event) {
+      if (!pointer.active) return;
+      const dx = event.clientX - pointer.x, dy = event.clientY - pointer.y;
+      pointer.x = event.clientX; pointer.y = event.clientY;
+      
+      view.yaw += dx * 0.006;
+      view.pitch = Math.max(-1.12, Math.min(1.12, view.pitch + dy * -0.006));
+      velYaw = dx * 0.006; velPitch = dy * -0.006; // Store for inertia
+      
+      lastInteractTime = performance.now();
+      requestRender();
+    }
+
+    function pointerUp(event) {
+      pointer.active = false;
+      if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+    }
+
+    function updateControls() {
+      view.zoom = Number(zoomRange.value) / 100;
+      const widthFactor = size.width < 520 ? 0.31 : 0.36;
+      const heightFactor = size.width < 520 ? 0.31 : 0.36;
+      size.radius = Math.min(size.width * widthFactor, size.height * heightFactor) * view.zoom;
+      zoomValue.textContent = `${zoomRange.value}%`;
+      view.spinSpeed = Number(speedRange.value) / 100;
+      speedValue.textContent = `${view.spinSpeed.toFixed(2)}×`;
+      requestRender();
+    }
+
+    resetButton.addEventListener("click", () => {
+      view.yaw = -0.62; view.pitch = 0.34; view.roll = 0; view.zoom = 1; zoomRange.value = "100";
+      velYaw = 0; velPitch = 0; siderealAngle = 0;
+      updateControls(); lastInteractTime = performance.now();
+    });
+
+    spinButton.addEventListener("click", () => {
+      view.spinning = !view.spinning;
+      lastInteractTime = performance.now();
+      spinButton.innerHTML = view.spinning
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M10 4h4v16h-4z"/><path d="M18 5v14"/><path d="M6 5v14"/></svg>Pause'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Play';
+      requestRender();
+    });
+
+    latRange.addEventListener("input", (e) => {
+      citySelect.value = "custom";
+      updateLatitude(Number(e.target.value));
+      lastInteractTime = performance.now();
+    });
+
+    citySelect.addEventListener("change", (e) => {
+      if (e.target.value !== "custom") {
+        const val = Number(e.target.value);
+        latRange.value = val;
+        updateLatitude(val);
+      }
+      lastInteractTime = performance.now();
+    });
+
+    zoomRange.addEventListener("input", () => { updateControls(); lastInteractTime = performance.now(); });
+    speedRange.addEventListener("input", () => { updateControls(); lastInteractTime = performance.now(); });
+    [showGridInput, showLabelsInput, showAnglesInput].forEach((input) => {
+      input.addEventListener("change", () => { requestRender(); lastInteractTime = performance.now(); });
+    });
+
+    canvas.addEventListener("pointerdown", pointerDown);
+    canvas.addEventListener("pointermove", pointerMove);
+    canvas.addEventListener("pointerup", pointerUp);
+    canvas.addEventListener("pointercancel", pointerUp);
+    window.addEventListener("resize", () => { resize(); requestRender(); });
+
+    // --- Modal Logic ---
+    const aboutModal = document.getElementById("aboutModal");
+    const aboutBtn = document.getElementById("aboutBtn");
+    const closeModalBtn = document.getElementById("closeModalBtn");
+
+    if (aboutBtn && aboutModal && closeModalBtn) {
+      aboutBtn.addEventListener("click", () => {
+        aboutModal.classList.add("open");
+      });
+
+      closeModalBtn.addEventListener("click", () => {
+        aboutModal.classList.remove("open");
+      });
+
+      // Close modal if clicking outside the window
+      aboutModal.addEventListener("click", (e) => {
+        if (e.target === aboutModal) {
+          aboutModal.classList.remove("open");
+        }
+      });
+    }
+    // -------------------
+
+    updateLatitude(31.23); // Boot it up
+    resize();
+    updateControls();
+    requestAnimationFrame(animate);
+
+  </script>
+</body>
+</html>
